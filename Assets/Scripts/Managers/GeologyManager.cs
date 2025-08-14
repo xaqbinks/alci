@@ -65,7 +65,7 @@ public class GeologyManager : MonoBehaviour
     {
         Debug.Log($"<color=brown>An earthquake strikes tile {tile.id}!</color>");
         // Make each earthquake sound slightly different
-        simManager.audioManager.PlayDynamicSound("Earthquake", tile.position, frequencyOverride: Random.Range(80f, 120f));
+        simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_EARTHQUAKE, tile.position, frequencyOverride: Random.Range(80f, 120f));
 
         // Earthquakes can damage populations.
         if (tile.populations.Count > 0)
@@ -89,7 +89,7 @@ public class GeologyManager : MonoBehaviour
         Debug.Log($"<color=red>A volcano erupts on tile {tile.id}, forming a new mountain!</color>");
         // Lower frequency for higher elevation volcanoes
         float frequency = Mathf.Lerp(150f, 50f, (tile.position.magnitude - planetData.seaLevel) / (planetData.noiseStrength * 0.7f));
-        simManager.audioManager.PlayDynamicSound("Volcano", tile.position, frequencyOverride: frequency);
+        simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_VOLCANO, tile.position, frequencyOverride: frequency);
 
         // Volcanoes change the terrain and add valuable resources.
         tile.terrainType = TerrainType.Mountain;
@@ -129,6 +129,6 @@ public class GeologyManager : MonoBehaviour
         // More significant deposits have a slightly higher pitch and more intense FM synthesis
         float frequency = Mathf.Lerp(400f, 600f, amount / 500f);
         float fmAmount = Mathf.Lerp(50f, 150f, amount / 500f);
-        simManager.audioManager.PlayDynamicSound("MineralDeposit", tile.position, frequencyOverride: frequency, fmAmountOverride: fmAmount);
+        simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_MINERAL_DEPOSIT, tile.position, frequencyOverride: frequency, fmAmountOverride: fmAmount);
     }
 }

@@ -103,7 +103,7 @@ public class ConflictManager : MonoBehaviour
         float battleScale = Mathf.Clamp01((float)totalPopInvolved / 5000f);
         float frequency = Mathf.Lerp(300f, 80f, battleScale); // Lower frequency for larger battles
         float fmAmount = Mathf.Lerp(50f, 400f, battleScale); // More FM for larger battles
-        simManager.audioManager.PlayDynamicSound("BattleImpact", tile.position, frequencyOverride: frequency, fmAmountOverride: fmAmount);
+        simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_BATTLE_IMPACT, tile.position, frequencyOverride: frequency, fmAmountOverride: fmAmount);
 
 
         // Calculate the total combat power of each side on the tile.

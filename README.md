@@ -18,77 +18,71 @@ This document provides instructions on how to set up, compile, and test the simu
 - **AI Opponents:** The simulation supports multiple species, with AI controllers making strategic decisions about research, migration, and expansion.
 - **Procedural Visualization:** In the absence of user-provided 3D models, the simulation will procedurally generate unique meshes for each species. These meshes visually change in real-time to reflect the species' evolution, with their shape, size, color, and texture determined by their biology, stats, and ethics.
 
-## Setup & Compilation for PC Testing
+## Setup & Compilation (VR First with PC Fallback)
+
+This project is designed as a **VR-first experience for the Meta Quest 3**, but it maintains full testability on a standard PC. The setup process requires the Oculus Integration SDK.
 
 ### Prerequisites
 
-- **Unity Hub**
-- **Unity Editor (2021.3 LTS or newer recommended)**
+- **Unity Hub** & **Unity Editor (2021.3 LTS or newer recommended)**
+- **Oculus Integration SDK:** Download and import this free package from the Unity Asset Store.
 - Basic knowledge of the Unity Editor interface.
 
-### Step 1: Create a New Unity Project
+### Step 1: Project and Asset Import
 
-1.  Open Unity Hub and create a new project.
-2.  Select the **3D (Core)** template.
-3.  Give your project a name (e.g., "AlienCivilizations") and click "Create Project".
+1.  Create a new, empty **3D (Core)** project in Unity Hub.
+2.  Go to `Window > Package Manager`. Find and import the **Oculus Integration** package.
+3.  Close the Unity Editor.
+4.  Copy the entire `Assets` folder from this repository into your project's root folder, **replacing** the existing `Assets` folder.
+5.  Re-open your project. Unity will import all scripts. If prompted by Oculus to upgrade/fix anything, accept the recommended changes.
+6.  If prompted, click **Import TMP Essentials**.
 
-### Step 2: Import Project Files
+### Step 2: Scene Setup
 
-1.  Close the Unity Editor.
-2.  Navigate to the directory where you saved the code from this project.
-3.  Copy the entire `Assets` folder provided.
-4.  Open your new Unity project's root folder in your file explorer.
-5.  Paste the copied `Assets` folder into your Unity project's root, choosing to **replace** the existing `Assets` folder.
-6.  Re-open your project in the Unity Editor. It will import all the scripts and settings.
-7.  If prompted by Unity to "Import TMP Essentials," click **Import**.
+The project uses a two-scene architecture. You will need to create/verify these scenes and add them to the build settings.
 
-### Step 3: Scene Setup
+#### Scene 1: `MainMenu`
 
-The codebase is for the simulation logic; you must set up a scene to run it.
+1.  Create a new scene (`File > New Scene`) and save it as `MainMenu.unity` inside an `Assets/Scenes/` folder.
+2.  **Create Managers:**
+    -   Create an empty `GameObject` named `[Managers]`.
+    -   Attach the `GameManager`, `GameSetupManager`, `InputManager`, and `PlatformRigManager` scripts to it.
+3.  **Create the UI:**
+    -   Create a UI Canvas. **Set its Render Mode to `World Space`** to prepare it for VR.
+    -   Attach the `MainMenuController.cs` script to a child GameObject of the Canvas.
+    -   Populate the `MainMenuController`'s fields with data assets (`PlanetData`, `SpeciesData`) and UI prefabs as needed.
+4.  **Set up the Platform Rigs:**
+    -   **PC Rig:** Create a `GameObject` named `PC_Rig`. Add the `PCCameraController.cs` script to its child Camera object.
+    -   **VR Rig:** Drag the `OVRCameraRig` prefab from the Oculus SDK into your scene.
+    -   On your `[Managers]` GameObject, link the `PC_Rig`, `VR_Rig`, and their respective components (`PCCameraController`'s Camera, `OVRCameraRig`'s `rightControllerAnchor`) to the fields on the `PlatformRigManager` and `InputManager`. The `PlatformRigManager` will automatically enable the correct rig at runtime.
 
-1.  Create a new scene (`File > New Scene`).
-2.  **Create the Planet:**
-    -   Create a sphere (`GameObject > 3D Object > Sphere`). Name it `Planet`.
-    -   Set its Transform Position to `(0, 0, 0)`.
-    -   Add a `Mesh Collider` component to it (`Add Component > Mesh Collider`).
-3.  **Create the Simulation Manager:**
-    -   Create an empty `GameObject` (`GameObject > Create Empty`). Name it `SimulationManager`.
-    -   Drag **all** scripts from the `Assets/Scripts/` subfolders (`Core`, `Managers`, `UI`, `Util`) onto the `SimulationManager` GameObject in the Inspector.
-4.  **Set up the PC Controls:**
-    -   Select your `Main Camera`. Drag `PCCameraController.cs` onto it. In the Inspector, drag the `Planet` GameObject into the `Target` field.
-    -   Create an empty `GameObject` named `PCInputController`. Drag `PCInputController.cs` onto it. In the Inspector, drag the `Main Camera` and `SimulationManager` GameObjects into the appropriate fields.
-5.  **Set up the UI & Visualizers:**
-    -   Create a UI Canvas (`GameObject > UI > Canvas`).
-    -   Create an empty `GameObject` as a child of the Canvas, named `PlanetViewPanel`. Add `PlanetViewController.cs` to it. Create and link the required TextMeshPro elements as described in the script's tooltips.
-    -   On the `SimulationManager` GameObject, drag the `PlanetViewPanel` into the `Planet View Controller` field.
-    -   Drag the `Planet` GameObject into the `Planet Mesh Filter` field of the `PlanetVisualizer` component.
-    -   (Optional) Create an empty `GameObject` named `SpeciesParent` and drag it into the `Species Parent` field of the `SpeciesVisualizer` component.
+#### Scene 2: `MainSimulationScene`
 
-### Step 4: Create Game Data Assets
+1.  Create a second scene and save it as `MainSimulationScene.unity`.
+2.  Repeat the setup for the `[Managers]` and `Platform Rigs` as in the `MainMenu` scene. This is necessary because they hold scene-specific references. The singletons will handle persistence correctly.
+3.  Add the `SimulationManager` and all other simulation-related managers to an empty `[Simulation]` GameObject.
+4.  Add the `Planet` GameObject.
+5.  Add any in-game UI Canvases, also set to **World Space**. For example, the `InterventionUIController` and `ResolutionUIController` would live here, initially disabled.
 
-1.  In the `Project` window, create folders like `Data/Planets`, `Data/Species`, etc.
-2.  Right-click in a folder and use the `Assets > Create > Alien Civilizations` menu to create:
-    -   One **Planet Data** asset. Configure its atmosphere and greenhouse gases.
-    -   At least two **Species Archetype** assets. Configure their biology, diet, and base stats.
-    -   Several **Great Leader Ability** assets.
-    -   One **Player Selections** asset. Link your Species Archetypes to it.
-3.  Select the `SimulationManager` GameObject. Drag your created assets into the corresponding fields in the Inspector.
-4.  **Create a Vertex Color Material:**
-    -   Right-click in the Project window, `Create > Shader > Unlit Shader`. Name it `VertexColorShader`.
-    -   Paste the shader code provided in the "Visualizing the Simulation" section below into this file.
-    -   Right-click on the shader asset, `Create > Material`. Name it `VertexColorMat`.
-    -   On the `SimulationManager`, drag this new material into the `Procedural Material` field of the `SpeciesVisualizer` component.
-    -   Also assign this material to the `Planet` GameObject's `Mesh Renderer`.
+### Step 3: Build Settings
 
-### Step 5: Run the Simulation
+1.  Go to `File > Build Settings...`.
+2.  Add both `MainMenu.unity` and `MainSimulationScene.unity` to the "Scenes In Build" list.
+3.  **Ensure `MainMenu` is at index 0.**
+4.  To build for VR (Meta Quest), switch the platform to **Android**. Set the texture compression to **ASTC**.
+5.  To build for PC testing, keep the platform as **Windows/Mac/Linux**.
 
-Press the **Play** button. You should see a colored planet and, after a moment, procedurally generated meshes for each species. Use the right mouse button to orbit, the mouse wheel to zoom, and left-click to inspect tiles.
+### Step 4: Run the Game
+
+1.  Open the `MainMenu` scene.
+2.  Press **Play**. The correct rig (PC or VR) will activate automatically.
+3.  Interact with the UI using your mouse or VR controller and launch the simulation.
 
 ## Automated Building
 
 This project includes an automated build script to simplify compiling.
 
-1.  Make sure your main scene (the one you created in Step 3) is added and enabled in the Build Settings (`File > Build Settings...`).
+1.  Make sure your `MainMenu` and `MainSimulationScene` are added and enabled in the Build Settings (as described in Step 3).
 2.  At the top of the Unity Editor, click the new **Build** menu item.
 3.  Select **Build for Windows**.
 4.  The script will automatically build the project and place the output `.exe` and data files into a `Builds/Windows/` folder in your project's root directory.

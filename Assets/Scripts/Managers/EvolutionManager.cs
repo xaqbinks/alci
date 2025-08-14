@@ -100,14 +100,14 @@ public class EvolutionManager : MonoBehaviour
             case "Environment":
                 // Adapt to temperature
                 species.temperatureTolerance += 0.5f;
-                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound("MutationApplied", soundOrigin.position, 1200f);
+                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_MUTATION_APPLIED, soundOrigin.position, 1200f);
                 Debug.Log($"{species.proceduralName} adapted: Temperature Tolerance increased to {species.temperatureTolerance}.");
                 break;
 
             case "Starvation":
                 // Become more metabolically efficient
                 species.foodConsumptionRate *= 0.98f; // 2% more efficient
-                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound("MutationApplied", soundOrigin.position, 1000f);
+                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_MUTATION_APPLIED, soundOrigin.position, 1000f);
                 Debug.Log($"{species.proceduralName} adapted: Food Consumption Rate decreased to {species.foodConsumptionRate}.");
                 break;
 
@@ -115,7 +115,7 @@ public class EvolutionManager : MonoBehaviour
             case "Predation": // Grouping predation here for now
                 // Adapt to be stronger in combat/defense
                 species.baseCombatStrength *= 1.05f; // 5% stronger
-                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound("MutationApplied", soundOrigin.position, 800f);
+                if (soundOrigin != null) simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_MUTATION_APPLIED, soundOrigin.position, 800f);
                 Debug.Log($"{species.proceduralName} adapted: Base Combat Strength increased to {species.baseCombatStrength}.");
                 break;
         }

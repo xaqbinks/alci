@@ -7,14 +7,17 @@ using System.Reflection;
 public class SimulationManager : MonoBehaviour
 {
     [Header("Data & Configuration")]
-    [Tooltip("Reference to the ScriptableObject holding the player's choices.")]
-    public PlayerSelections playerSelections;
     [Tooltip("A list of all possible technologies in the game.")]
     public List<Technology> masterTechnologyList;
     [Tooltip("A list of all possible procedural traits.")]
     public List<ProceduralTrait> masterTraitList;
-    [Tooltip("The planet data asset for the current game.")]
-    public PlanetData activePlanet;
+
+    [Header("Win/Loss Condition Parameters")]
+    [Tooltip("The maximum number of ticks before a Stagnation loss is declared.")]
+    public long maxTicksForStagnation = 50000;
+
+    // This is now set at runtime from the GameSetupManager
+    private PlanetData activePlanet;
 
     [Header("Manager & UI References")]
     public PlanetViewController planetViewController;
@@ -25,6 +28,7 @@ public class SimulationManager : MonoBehaviour
 
     public long currentTick { get; private set; }
     public bool isRunning { get; private set; }
+    public int TicksPerFrame { get; private set; } = 5;
     private bool isSandbox;
     private List<SpeciesData> activeSpeciesList;
     private Dictionary<int, PlanetTile> planetGraph;
@@ -41,14 +45,27 @@ public class SimulationManager : MonoBehaviour
 
     void Start()
     {
-        // 1. Generate unique species for this match
-        activeSpeciesList = SpeciesGenerator.GenerateSpeciesForMatch(playerSelections, masterTraitList, activePlanet);
+        // --- 1. Load Configuration from GameSetupManager ---
+        GameSetupManager setupManager = GameSetupManager.instance;
+        if (setupManager == null)
+        {
+            Debug.LogError("FATAL: GameSetupManager not found. Simulation cannot start. Please start from the MainMenu scene.");
+            isRunning = false;
+            return;
+        }
+
+        activePlanet = setupManager.selectedPlanet;
+        isSandbox = setupManager.isSandboxMode;
+        List<SpeciesData> selectedArchetypes = setupManager.GetAllSelectedSpecies();
+
+        // 2. Generate unique species for this match
+        activeSpeciesList = SpeciesGenerator.GenerateSpeciesForMatch(selectedArchetypes, masterTraitList, activePlanet);
         foreach(var species in activeSpeciesList) { species.InitializeRuntimeData(); }
 
-        // 2. Generate Planet Graph
+        // 3. Generate Planet Graph
         planetGraph = PlanetMeshGenerator.GeneratePlanetGraph(GetComponentInChildren<MeshFilter>(), activePlanet);
 
-        // 3. Initialize Managers
+        // 4. Initialize Managers
         geologyManager = GetComponent<GeologyManager>();
         geologyManager.Initialize(this, planetGraph, activePlanet);
 
@@ -95,28 +112,56 @@ public class SimulationManager : MonoBehaviour
         speciesVisualizer = GetComponent<SpeciesVisualizer>();
         speciesVisualizer.Initialize(this);
 
+        // Link the Resolution UI to the GameManager
+        GameManager.instance.resolutionUIController = FindObjectOfType<ResolutionUIController>();
+
         // 5. Spawn initial populations
         SpawnInitialPopulations();
 
-        // 6. Initialize UI and start the simulation
-        isSandbox = playerSelections.isSandboxMode;
+        // 6. Start the main simulation coroutine
         isRunning = true;
+        StartCoroutine(SimulationCoroutine());
     }
 
-    void Update()
+    private System.Collections.IEnumerator SimulationCoroutine()
     {
-        // For testing, process one tick per second.
-        if (isRunning && Time.frameCount % 60 == 0)
+        // This is the "Hurricane of Time" as described in the GDD.
+        while (isRunning)
         {
-             ProcessTick();
+            if (GameManager.instance != null && GameManager.instance.currentState == GameState.Simulating)
+            {
+                for(int i = 0; i < TicksPerFrame; i++)
+                {
+                    if (GameManager.instance.currentState != GameState.Simulating) break;
+                    ProcessTick();
+                }
+            }
+            yield return null;
         }
+    }
+
+    public void IncreaseSimulationSpeed()
+    {
+        TicksPerFrame = Mathf.Clamp(TicksPerFrame * 2, 1, 100);
+        Debug.Log($"Simulation speed increased. Ticks per frame: {TicksPerFrame}");
+    }
+
+    public void DecreaseSimulationSpeed()
+    {
+        TicksPerFrame = Mathf.Clamp(TicksPerFrame / 2, 1, 100);
+        Debug.Log($"Simulation speed decreased. Ticks per frame: {TicksPerFrame}");
     }
 
     public void ProcessTick()
     {
-        if (!isRunning) return;
+        // This check is crucial to ensure the simulation stops immediately when the game ends.
+        if (!isRunning || (GameManager.instance != null && GameManager.instance.currentState != GameState.Simulating))
+        {
+            isRunning = false;
+            return;
+        }
+
         currentTick++;
-        Debug.Log($"--- Processing Tick {currentTick} ---");
 
         // Clear per-tick data
         speciesInCombat.Clear();
@@ -153,6 +198,12 @@ public class SimulationManager : MonoBehaviour
 
         // 9. Update Music State
         UpdateMusicalState();
+
+        // 10. Check for Win/Loss Conditions
+        if (!isSandbox && currentTick > 1) // Don't check on the very first tick
+        {
+            CheckWinLossConditions();
+        }
     }
 
     /// <summary>
@@ -367,6 +418,17 @@ public class SimulationManager : MonoBehaviour
 
     // --- PUBLIC GETTERS FOR MANAGERS ---
     public Dictionary<int, PlanetTile> GetPlanetGraph() => planetGraph;
+
+    public SpeciesData GetPlayerSpecies()
+    {
+        // For now, assumes the player is the first species in the list.
+        if (activeSpeciesList != null && activeSpeciesList.Count > 0)
+        {
+            return activeSpeciesList[0];
+        }
+        return null;
+    }
+
     public long GetTotalPopulation(SpeciesData species)
     {
         long total = 0;
@@ -403,6 +465,46 @@ public class SimulationManager : MonoBehaviour
         if (planetGraph == null || planetGraph.Count == 0) return null;
 
         return planetGraph.Values.OrderBy(tile => Vector3.Distance(tile.position, worldPosition)).First();
+    }
+
+    private void CheckWinLossConditions()
+    {
+        if (GameManager.instance.currentState != GameState.Simulating) return;
+
+        var playerSpecies = GetPlayerSpecies();
+        if (playerSpecies == null) return; // Should not happen in a normal game
+
+        // Annihilation (Loss)
+        if (GetTotalPopulation(playerSpecies) <= 0)
+        {
+            GameManager.instance.EndGame($"{playerSpecies.proceduralName} has been driven to extinction. (Annihilation)");
+            return;
+        }
+
+        // Galactic Dominance (Win)
+        if (activeSpeciesList.Count(s => GetTotalPopulation(s) > 0) == 1 && GetTotalPopulation(playerSpecies) > 0)
+        {
+            GameManager.instance.EndGame($"{playerSpecies.proceduralName} is the last surviving species. (Galactic Dominance)");
+            return;
+        }
+
+        // Technological Transcendence (Win)
+        if (playerSpecies.discoveredTechnologies.Any(t => t.techName == GameConstants.TECH_PLANETARY_CONSCIOUSNESS))
+        {
+            GameManager.instance.EndGame($"{playerSpecies.proceduralName} has achieved technological transcendence!");
+            return;
+        }
+
+        // Stagnation (Loss)
+        if (currentTick > maxTicksForStagnation)
+        {
+            bool hasAdvanced = playerSpecies.discoveredTechnologies.Any(t => t.techName == GameConstants.TECH_SPACEFLIGHT);
+            if (!hasAdvanced)
+            {
+                GameManager.instance.EndGame($"{playerSpecies.proceduralName} failed to advance before the stars grew cold. (Stagnation)");
+                return;
+            }
+        }
     }
 
     private void UpdateMusicalState()
@@ -452,14 +554,12 @@ public static class SpeciesGenerator
     /// <summary>
     /// Creates unique, procedurally modified instances of species for a new game.
     /// </summary>
-    public static List<SpeciesData> GenerateSpeciesForMatch(PlayerSelections selections, List<ProceduralTrait> masterTraitList, PlanetData planet)
+    public static List<SpeciesData> GenerateSpeciesForMatch(List<SpeciesData> selectedArchetypes, List<ProceduralTrait> masterTraitList, PlanetData planet)
     {
         var generatedSpeciesList = new List<SpeciesData>();
-        if (selections == null) return generatedSpeciesList;
+        if (selectedArchetypes == null) return generatedSpeciesList;
 
-        var chosenArchetypes = selections.GetAllSelectedArchetypes();
-
-        foreach (var archetype in chosenArchetypes)
+        foreach (var archetype in selectedArchetypes)
         {
             // Create an instance to avoid modifying the base ScriptableObject asset
             SpeciesData newSpecies = Object.Instantiate(archetype);

@@ -104,13 +104,13 @@ public class CivilizationManager : MonoBehaviour
                 float techScale = Mathf.Clamp01(discoveredTech.knowledgeCost / 2000f); // Assuming max cost of 2000
                 float frequency = Mathf.Lerp(440f, 880f, techScale);
                 float fmAmount = Mathf.Lerp(100f, 500f, techScale);
-                simManager.audioManager.PlayDynamicSound("TechDiscovery", soundOrigin.position, frequency, fmAmount);
+                simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_TECH_DISCOVERY, soundOrigin.position, frequency, fmAmount);
             }
 
             Debug.Log($"<color=blue>{species.proceduralName} has discovered its target technology: {discoveredTech.techName}!</color>");
             species.targetTechnology = null;
 
-            if (discoveredTech.techName == "Social Cohesion" && species.government == GovernmentType.None)
+            if (discoveredTech.techName == GameConstants.TECH_SOCIAL_COHESION && species.government == GovernmentType.None)
             {
                 species.government = DetermineGovernment(species);
                 if (soundOrigin != null)
@@ -119,7 +119,7 @@ public class CivilizationManager : MonoBehaviour
                     float govFrequency = 400f;
                     if (species.government == GovernmentType.Autocracy) govFrequency = 250f; // Lower, more imposing
                     if (species.government == GovernmentType.Technocracy) govFrequency = 600f; // Higher, more cerebral
-                    simManager.audioManager.PlayDynamicSound("GovernmentFormed", soundOrigin.position, govFrequency);
+                    simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_GOVERNMENT_FORMED, soundOrigin.position, govFrequency);
                 }
                 Debug.Log($"<color=yellow>{species.proceduralName} has formed a {species.government}!</color>");
             }

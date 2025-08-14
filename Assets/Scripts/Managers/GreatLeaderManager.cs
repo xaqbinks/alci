@@ -43,7 +43,7 @@ public class GreatLeaderManager : MonoBehaviour
                     PlanetTile soundOrigin = GetSpeciesSoundOrigin(species);
                     if (soundOrigin != null)
                     {
-                        simManager.audioManager.PlayDynamicSound("LeaderDeath", soundOrigin.position, frequencyOverride: 200f);
+                        simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_LEADER_DEATH, soundOrigin.position, frequencyOverride: 200f);
                     }
 
                     return true; // Remove from list
@@ -73,7 +73,7 @@ public class GreatLeaderManager : MonoBehaviour
         PlanetTile soundOrigin = GetSpeciesSoundOrigin(species);
         if (soundOrigin != null)
         {
-            simManager.audioManager.PlayDynamicSound("LeaderSpawn", soundOrigin.position, frequencyOverride: 400f);
+            simManager.audioManager.PlayDynamicSound(GameConstants.SOUND_LEADER_SPAWN, soundOrigin.position, frequencyOverride: 400f);
         }
     }
 
